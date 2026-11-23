@@ -56,7 +56,10 @@ jobs:
           PACKAGE_ID: GitVersionNuGetDemo
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_VERSION: ${{ steps.gitversion.outputs.majorMinorPatch }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
           GITHUB_API_URL: ${{ github.api_url }}
         shell: bash
         run: |
@@ -66,13 +69,22 @@ jobs:
           else
             is_prerelease=false
           fi
+          if {
+            printf '%s\n' "$PR_TITLE" "$PR_BODY"
+            git log --format=%B "$PR_BASE_SHA..$PR_HEAD_SHA"
+          } | grep -Eiq '\+semver:[[:space:]]*breaking'; then
+            is_breaking_change=true
+          else
+            is_breaking_change=false
+          fi
           version=$(python3 .github/scripts/resolve_package_version.py \
             --owner "$PACKAGE_OWNER" \
             --owner-type "$PACKAGE_OWNER_TYPE" \
             --package-id "$PACKAGE_ID" \
             --pr-number "$PR_NUMBER" \
             --base-version "$BASE_VERSION" \
-            --prerelease "$is_prerelease")
+            --prerelease "$is_prerelease" \
+            --breaking-change "$is_breaking_change")
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Pack NuGet package

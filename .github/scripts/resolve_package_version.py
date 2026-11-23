@@ -46,14 +46,35 @@ class AuthorizationSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
         return redirected
 
 
-def version_for_build(base_version, latest_for_pr, is_prerelease):
-    """Apply the PR prerelease counter to GitVersion's mainline version."""
+def version_for_build(
+    base_version,
+    latest_for_pr,
+    is_prerelease,
+    latest_stable=None,
+    is_breaking_change=False,
+):
+    """Resolve a published version from GitVersion and package history."""
     match = VERSION_PATTERN.fullmatch(base_version)
     if match is None:
         raise ValueError(f"GitVersion returned an unsupported version: {base_version}")
     major, minor, patch = (int(match[name]) for name in ("major", "minor", "patch"))
 
     if not is_prerelease:
+        previous_pr_version = VERSION_PATTERN.fullmatch(latest_for_pr or "")
+        if previous_pr_version and previous_pr_version["prerelease"] is None:
+            return latest_for_pr
+
+        latest = VERSION_PATTERN.fullmatch(latest_stable or "")
+        if latest and int(latest["major"]) == major:
+            latest_minor = int(latest["minor"])
+            latest_patch = int(latest["patch"])
+            if is_breaking_change:
+                if minor <= latest_minor:
+                    return f"{major}.{latest_minor + 1}.0"
+            elif minor < latest_minor or (
+                minor == latest_minor and patch <= latest_patch
+            ):
+                return f"{major}.{latest_minor}.{latest_patch + 1}"
         return f"{major}.{minor}.{patch}"
 
     latest = VERSION_PATTERN.fullmatch(latest_for_pr or "")
@@ -150,6 +171,23 @@ def latest_version_for_pr(versions, package_id, owner, token, pr_number):
     return None
 
 
+def latest_stable_version(versions):
+    stable_versions = []
+    for package_version in versions:
+        name = package_version["name"]
+        match = VERSION_PATTERN.fullmatch(name)
+        if match and match["prerelease"] is None:
+            stable_versions.append(
+                (
+                    int(match["major"]),
+                    int(match["minor"]),
+                    int(match["patch"]),
+                    name,
+                )
+            )
+    return max(stable_versions, default=(0, 0, 0, None))[3]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--owner", required=True)
@@ -158,6 +196,7 @@ def main():
     parser.add_argument("--pr-number", type=int, required=True)
     parser.add_argument("--base-version", required=True)
     parser.add_argument("--prerelease", choices=("true", "false"), required=True)
+    parser.add_argument("--breaking-change", choices=("true", "false"), required=True)
     args = parser.parse_args()
 
     token = os.environ["GH_TOKEN"]
@@ -169,7 +208,15 @@ def main():
         token,
     )
     latest = latest_version_for_pr(versions, args.package_id, args.owner, token, args.pr_number)
-    print(version_for_build(args.base_version, latest, args.prerelease == "true"))
+    print(
+        version_for_build(
+            args.base_version,
+            latest,
+            args.prerelease == "true",
+            latest_stable_version(versions),
+            args.breaking_change == "true",
+        )
+    )
 
 
 if __name__ == "__main__":

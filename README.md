@@ -2,17 +2,16 @@
 
 This repository contains a small .NET 10 library and publishes it to GitHub
 Packages when a pull request is merged into `main`. The package major version is
-derived from the target framework major version; GitVersion uses Mainline mode
-to advance the build component for ordinary merged changes and reset it to `0`
-when the minor version advances.
+derived from the target framework major version. The resolver advances from the
+latest stable package: ordinary merged changes increment the build component,
+while breaking changes increment the minor component and reset the build to `0`.
 
 ## Version changes
 
-Mark a breaking change in its commit message or pull request title/body with
-`+semver: breaking`. The marker is included in the merge history so GitVersion
-can advance the minor component. Minor bumps are reserved for this marker;
-GitVersion major markers are disabled because the package major is reserved for
-the .NET target framework major.
+Mark a breaking change in a commit message or pull request title/body with
+`+semver: breaking`. Minor bumps are reserved for this marker; GitVersion major
+markers are disabled because the package major is reserved for the .NET target
+framework major.
 
 To select a prerelease, create a Git tag named `prerelease` on the latest commit
 in the pull request before merging. Only that exact commit is checked. For

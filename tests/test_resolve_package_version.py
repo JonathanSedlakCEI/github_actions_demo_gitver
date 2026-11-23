@@ -15,10 +15,40 @@ SPEC.loader.exec_module(VERSIONING)
 
 
 class VersionForBuildTests(unittest.TestCase):
-    def test_release_uses_gitversion_mainline_version(self):
+    def test_first_stable_release_uses_gitversion_baseline(self):
         self.assertEqual(
             VERSIONING.version_for_build("10.2.3", None, False),
             "10.2.3",
+        )
+
+    def test_plain_merged_change_increments_latest_stable_patch(self):
+        self.assertEqual(
+            VERSIONING.version_for_build("10.0.0", None, False, "10.0.0"),
+            "10.0.1",
+        )
+
+    def test_breaking_change_increments_minor_and_resets_patch(self):
+        self.assertEqual(
+            VERSIONING.version_for_build(
+                "10.0.0",
+                None,
+                False,
+                "10.0.5",
+                is_breaking_change=True,
+            ),
+            "10.1.0",
+        )
+
+    def test_gitversion_increment_is_not_applied_twice(self):
+        self.assertEqual(
+            VERSIONING.version_for_build("10.0.1", None, False, "10.0.0"),
+            "10.0.1",
+        )
+
+    def test_stable_rerun_reuses_this_pull_requests_version(self):
+        self.assertEqual(
+            VERSIONING.version_for_build("10.0.0", "10.0.1", False, "10.0.1"),
+            "10.0.1",
         )
 
     def test_first_prerelease_uses_two_digit_counter(self):
@@ -47,6 +77,18 @@ class VersionForBuildTests(unittest.TestCase):
         self.assertEqual(
             VERSIONING.version_for_build("10.3.0", "10.2.3", True),
             "10.3.0-prerelease-01",
+        )
+
+    def test_latest_stable_ignores_prerelease_versions(self):
+        self.assertEqual(
+            VERSIONING.latest_stable_version(
+                [
+                    {"name": "10.0.1-prerelease-12"},
+                    {"name": "10.0.0"},
+                    {"name": "10.0.2"},
+                ]
+            ),
+            "10.0.2",
         )
 
 
