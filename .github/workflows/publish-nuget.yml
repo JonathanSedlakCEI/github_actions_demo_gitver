@@ -1,0 +1,93 @@
+name: Publish NuGet package
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.x
+
+      - name: Read target .NET major version
+        id: framework
+        shell: bash
+        run: |
+          framework=$(sed -n 's/.*<TargetFramework>net\([0-9][0-9]*\)\..*<\/TargetFramework>.*/\1/p' src/GitVersionNuGetDemo/GitVersionNuGetDemo.csproj)
+          if [[ -z "$framework" ]]; then
+            echo "Could not determine the target .NET major version." >&2
+            exit 1
+          fi
+          echo "major=$framework" >> "$GITHUB_OUTPUT"
+
+      - uses: gittools/actions/gitversion/setup@v4
+        with:
+          versionSpec: 6.x
+
+      - uses: gittools/actions/gitversion/execute@v4
+        id: gitversion
+        with:
+          overrideConfig: |
+            next-version=${{ steps.framework.outputs.major }}.0.0
+
+      - name: Resolve package version
+        id: package-version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+          PACKAGE_OWNER_TYPE: ${{ github.event.repository.owner.type }}
+          PACKAGE_ID: GitVersionNuGetDemo
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_VERSION: ${{ steps.gitversion.outputs.majorMinorPatch }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_API_URL: ${{ github.api_url }}
+        shell: bash
+        run: |
+          if git show-ref --verify --quiet refs/tags/prerelease &&
+             [[ "$(git rev-parse 'refs/tags/prerelease^{commit}')" == "$PR_HEAD_SHA" ]]; then
+            is_prerelease=true
+          else
+            is_prerelease=false
+          fi
+          version=$(python3 .github/scripts/resolve_package_version.py \
+            --owner "$PACKAGE_OWNER" \
+            --owner-type "$PACKAGE_OWNER_TYPE" \
+            --package-id "$PACKAGE_ID" \
+            --pr-number "$PR_NUMBER" \
+            --base-version "$BASE_VERSION" \
+            --prerelease "$is_prerelease")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Pack NuGet package
+        run: >-
+          dotnet pack src/GitVersionNuGetDemo/GitVersionNuGetDemo.csproj
+          --configuration Release
+          --output artifacts
+          -p:PackageVersion="${{ steps.package-version.outputs.version }}"
+          -p:PackageTags="github-actions-demo pr-${{ github.event.pull_request.number }}"
+
+      - name: Publish to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          dotnet nuget push artifacts/*.nupkg
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          --api-key "$GITHUB_TOKEN"
+          --skip-duplicate
