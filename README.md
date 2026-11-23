@@ -1,4 +1,4 @@
-# GitVersion NuGet demo
+# GitVersion NuGet demo 
 
 This repository contains a small .NET 10 library and publishes it to GitHub
 Packages when a pull request is merged into `main`. The package major version is
