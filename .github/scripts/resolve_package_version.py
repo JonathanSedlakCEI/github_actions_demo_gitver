@@ -85,7 +85,11 @@ def version_for_build(
         )
     if latest and latest["prerelease"] is None:
         if int(latest["major"]) == major and int(latest["minor"]) == minor:
-            patch = max(patch, int(latest["patch"]) + 1)
+            patch = max(patch, int(latest["patch"]))
+
+    stable = VERSION_PATTERN.fullmatch(latest_stable or "")
+    if stable and int(stable["major"]) == major and int(stable["minor"]) == minor:
+        patch = max(patch, int(stable["patch"]))
 
     return f"{major}.{minor}.{patch}-prerelease-01"
 

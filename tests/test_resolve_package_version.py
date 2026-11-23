@@ -27,6 +27,17 @@ class VersionForBuildTests(unittest.TestCase):
             "10.0.1",
         )
 
+    def test_plain_update_after_prerelease_increments_stable_patch(self):
+        self.assertEqual(
+            VERSIONING.version_for_build(
+                "10.0.0",
+                "10.0.1-prerelease-01",
+                False,
+                "10.0.1",
+            ),
+            "10.0.2",
+        )
+
     def test_breaking_change_increments_minor_and_resets_patch(self):
         self.assertEqual(
             VERSIONING.version_for_build(
@@ -57,6 +68,17 @@ class VersionForBuildTests(unittest.TestCase):
             "10.2.3-prerelease-01",
         )
 
+    def test_first_prerelease_uses_latest_stable_package_version(self):
+        self.assertEqual(
+            VERSIONING.version_for_build(
+                "10.0.0",
+                None,
+                True,
+                latest_stable="10.0.1",
+            ),
+            "10.0.1-prerelease-01",
+        )
+
     def test_existing_prerelease_increments_its_counter(self):
         self.assertEqual(
             VERSIONING.version_for_build(
@@ -67,10 +89,10 @@ class VersionForBuildTests(unittest.TestCase):
             "10.2.3-prerelease-10",
         )
 
-    def test_existing_stable_pr_version_increments_build(self):
+    def test_existing_stable_pr_version_starts_prerelease_on_same_version(self):
         self.assertEqual(
             VERSIONING.version_for_build("10.2.3", "10.2.3", True),
-            "10.2.4-prerelease-01",
+            "10.2.3-prerelease-01",
         )
 
     def test_minor_bump_resets_build_from_gitversion(self):
