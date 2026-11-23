@@ -23,10 +23,11 @@ git push --force origin refs/tags/prerelease
 ```
 
 The workflow publishes prerelease builds as `major.minor.build-prerelease-01`.
+The first prerelease uses the current stable build number, even when GitVersion's
+baseline has not advanced.
 If GitHub Packages already contains a version tagged with that pull request
-number, the workflow advances its prerelease counter; a prior stable package
-from that PR starts a new prerelease by advancing the build component. The
-package's NuGet tags retain the PR number for this lookup.
+number, the workflow advances its prerelease counter. The package's NuGet tags
+retain the PR number for this lookup.
 
 The package major is read from the project `TargetFramework` when GitVersion
 runs, so changing `net10.0` to `net11.0` makes the package major `11`. The
