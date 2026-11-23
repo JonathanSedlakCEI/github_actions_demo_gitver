@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>GitVersionNuGetDemo</PackageId>
+    <Version>0.0.0</Version>
+    <Authors>JonathanSedlakCEI</Authors>
+    <Description>A minimal library demonstrating GitVersion-based NuGet versioning.</Description>
+    <RepositoryUrl>https://github.com/JonathanSedlakCEI/github_actions_demo_gitver</RepositoryUrl>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+</Project>

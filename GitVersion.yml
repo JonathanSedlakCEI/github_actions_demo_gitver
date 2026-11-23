@@ -1,0 +1,15 @@
+next-version: 10.0.0
+strategies:
+  - ConfiguredNextVersion
+  - Mainline
+commit-message-incrementing: Enabled
+major-version-bump-message: '(?!)'
+minor-version-bump-message: '(?m)\+semver:\s?breaking'
+patch-version-bump-message: '(?m)\+semver:\s?patch'
+no-bump-message: '(?m)\+semver:\s?(none|skip)'
+branches:
+  main:
+    regex: ^main$
+    label: ''
+    increment: Patch
+    is-main-branch: true
