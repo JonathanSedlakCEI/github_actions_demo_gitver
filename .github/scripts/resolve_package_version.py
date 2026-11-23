@@ -20,6 +20,32 @@ VERSION_PATTERN = re.compile(
 )
 
 
+class AuthorizationSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Keep package credentials on the origin that issued them."""
+
+    def redirect_request(self, request, response, code, message, headers, new_url):
+        redirected = super().redirect_request(
+            request, response, code, message, headers, new_url
+        )
+        if redirected is None:
+            return None
+
+        source = urllib.parse.urlsplit(request.full_url)
+        destination = urllib.parse.urlsplit(new_url)
+        source_origin = (source.scheme.lower(), source.hostname, source.port)
+        destination_origin = (
+            destination.scheme.lower(),
+            destination.hostname,
+            destination.port,
+        )
+        if source_origin != destination_origin:
+            for request_headers in (redirected.headers, redirected.unredirected_hdrs):
+                for name in tuple(request_headers):
+                    if name.lower() == "authorization":
+                        del request_headers[name]
+        return redirected
+
+
 def version_for_build(base_version, latest_for_pr, is_prerelease):
     """Apply the PR prerelease counter to GitVersion's mainline version."""
     match = VERSION_PATTERN.fullmatch(base_version)
@@ -101,7 +127,8 @@ def tags_for_package(base_address, package_id, version, owner, token):
         f"{package}/{normalized_version}/{package}.{normalized_version}.nupkg",
     )
     request = urllib.request.Request(url, headers={"Authorization": f"Basic {credentials}"})
-    with urllib.request.urlopen(request) as response:
+    opener = urllib.request.build_opener(AuthorizationSafeRedirectHandler())
+    with opener.open(request) as response:
         archive = zipfile.ZipFile(io.BytesIO(response.read()))
     nuspec = next(name for name in archive.namelist() if name.lower().endswith(".nuspec"))
     root = ET.fromstring(archive.read(nuspec))

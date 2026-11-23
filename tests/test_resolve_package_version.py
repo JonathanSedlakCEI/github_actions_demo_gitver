@@ -50,5 +50,42 @@ class VersionForBuildTests(unittest.TestCase):
         )
 
 
+class AuthorizationSafeRedirectHandlerTests(unittest.TestCase):
+    def setUp(self):
+        self.handler = VERSIONING.AuthorizationSafeRedirectHandler()
+        self.request = VERSIONING.urllib.request.Request(
+            "https://nuget.pkg.github.com/owner/package.nupkg",
+            headers={
+                "Authorization": "Basic secret",
+                "Accept": "application/octet-stream",
+            },
+        )
+
+    def test_cross_origin_redirect_drops_authorization(self):
+        redirected = self.handler.redirect_request(
+            self.request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://packagesstorage.blob.core.windows.net/package.nupkg?sig=redacted",
+        )
+
+        self.assertNotIn("Authorization", redirected.headers)
+        self.assertEqual(redirected.headers["Accept"], "application/octet-stream")
+
+    def test_same_origin_redirect_keeps_authorization(self):
+        redirected = self.handler.redirect_request(
+            self.request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://nuget.pkg.github.com/owner/other.nupkg",
+        )
+
+        self.assertEqual(redirected.headers["Authorization"], "Basic secret")
+
+
 if __name__ == "__main__":
     unittest.main()
